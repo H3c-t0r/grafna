@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"gocloud.dev/blob/fileblob"
 	"k8s.io/apimachinery/pkg/selection"
@@ -28,7 +29,33 @@ func ProvideResourceServer(db db.DB, cfg *setting.Cfg, features featuremgmt.Feat
 		Tracer: tracer,
 	}
 
-	useEntitySQL := false
+	supportBlobs := true
+	useEntitySQL := true
+
+	// Create a local blob filesystem blob store
+	if supportBlobs {
+		dir := filepath.Join(cfg.DataPath, "unistore", "blobs")
+		if err := os.MkdirAll(dir, 0o750); err != nil {
+			return nil, err
+		}
+
+		bucket, err := fileblob.OpenBucket(dir, &fileblob.Options{
+			CreateDir: true,
+			Metadata:  fileblob.MetadataDontWrite, // skip
+		})
+		if err != nil {
+			return nil, err
+		}
+		opts.Blob, err = resource.NewCDKBlobStore(context.Background(), resource.CDKBlobStoreOptions{
+			Tracer:        tracer,
+			Bucket:        bucket,
+			URLExpiration: time.Minute * 20,
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	if useEntitySQL {
 		eDB, err := dbimpl.ProvideEntityDB(db, cfg, features, tracer)
 		if err != nil {

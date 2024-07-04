@@ -32,6 +32,8 @@ var (
 // ResourceServer implements all services
 type ResourceServer interface {
 	ResourceStoreServer
+	ResourceIndexServer
+	BlobStoreServer
 	DiagnosticsServer
 	LifecycleHooks
 }
@@ -60,12 +62,35 @@ type StorageBackend interface {
 	WatchWriteEvents(ctx context.Context) (<-chan *WrittenEvent, error)
 }
 
+// This interface is not exposed to end users directly
+// Access to this interface is already gated by access control
+type BlobStore interface {
+	// Indicates if storage layer supports signed urls
+	SupportsSignedURLs() bool
+
+	// Get the raw blob bytes and metadata -- limited to protobuf message size
+	// For larger payloads, we should use presigned URLs to upload from the client
+	PutBlob(context.Context, *PutBlobRequest) (*PutBlobResponse, error)
+
+	// Get blob contents.  When possible, this will return a signed URL
+	// For large payloads, signed URLs are required to avoid protobuf message size limits
+	GetBlob(ctx context.Context, resource *ResourceKey, info *utils.BlobInfo, mustProxy bool) (*GetBlobResponse, error)
+
+	// TODO? List+Delete?  This is for admin access
+}
+
 type ResourceServerOptions struct {
 	// OTel tracer
 	Tracer trace.Tracer
 
 	// Real storage backend
 	Backend StorageBackend
+
+	// The blob storage engine
+	Blob BlobStore
+
+	// Real storage backend
+	Search ResourceIndexServer
 
 	// Diagnostics
 	Diagnostics DiagnosticsServer
@@ -89,6 +114,12 @@ func NewResourceServer(opts ResourceServerOptions) (ResourceServer, error) {
 	if opts.Backend == nil {
 		return nil, fmt.Errorf("missing Backend implementation")
 	}
+	if opts.Search == nil {
+		opts.Search = &noopService{}
+	}
+	if opts.Blob == nil {
+		opts.Blob = &noopService{}
+	}
 	if opts.Diagnostics == nil {
 		opts.Diagnostics = &noopService{}
 	}
@@ -110,6 +141,7 @@ func NewResourceServer(opts ResourceServerOptions) (ResourceServer, error) {
 		tracer:      opts.Tracer,
 		log:         slog.Default().With("logger", "resource-server"),
 		backend:     opts.Backend,
+		search:      opts.Search,
 		diagnostics: opts.Diagnostics,
 		access:      opts.WriteAccess,
 		lifecycle:   opts.Lifecycle,
@@ -125,6 +157,8 @@ type server struct {
 	tracer      trace.Tracer
 	log         *slog.Logger
 	backend     StorageBackend
+	search      ResourceIndexServer
+	blob        BlobStore
 	diagnostics DiagnosticsServer
 	access      WriteAccessHooks
 	lifecycle   LifecycleHooks
@@ -553,10 +587,88 @@ func (s *server) Watch(req *WatchRequest, srv ResourceStore_WatchServer) error {
 	}
 }
 
+// GetBlob implements ResourceServer.
+func (s *server) PutBlob(ctx context.Context, req *PutBlobRequest) (*PutBlobResponse, error) {
+	if err := s.Init(); err != nil {
+		return nil, err
+	}
+	rsp, err := s.blob.PutBlob(ctx, req)
+	rsp.Status, err = errToStatus(err)
+	return rsp, err
+}
+
+func (s *server) getPartialObject(ctx context.Context, key *ResourceKey, rv int64) (utils.GrafanaMetaAccessor, *StatusResult) {
+	rsp, err := s.backend.Read(ctx, &ReadRequest{
+		Key:             key,
+		ResourceVersion: rv,
+	})
+	if err != nil {
+		rsp.Status, _ = errToStatus(err)
+	}
+	if rsp.Status != nil {
+		return nil, rsp.Status
+	}
+
+	partial := &metav1.PartialObjectMetadata{}
+	err = json.Unmarshal(rsp.Value, partial)
+	if err != nil {
+		rsp.Status, _ = errToStatus(fmt.Errorf("error reading body %w", err))
+		return nil, rsp.Status
+	}
+	obj, err := utils.MetaAccessor(partial)
+	if err != nil {
+		rsp.Status, _ = errToStatus(fmt.Errorf("error getting accessor %w", err))
+		return nil, rsp.Status
+	}
+	return obj, nil
+}
+
+// GetBlob implements ResourceServer.
+func (s *server) GetBlob(ctx context.Context, req *GetBlobRequest) (*GetBlobResponse, error) {
+	if err := s.Init(); err != nil {
+		return nil, err
+	}
+
+	// NOTE: in SQL... this could be simple select rather than a full fetch and extract
+	obj, status := s.getPartialObject(ctx, req.Resource, req.ResourceVersion)
+	if status != nil {
+		return &GetBlobResponse{Status: status}, nil
+	}
+
+	info := obj.GetBlob()
+	if info == nil || info.UID == "" {
+		return &GetBlobResponse{Status: &StatusResult{
+			Status:  "Failure",
+			Message: "Resource does not have a linked blob",
+			Code:    404,
+		}}, nil
+	}
+
+	rsp, err := s.blob.GetBlob(ctx, req.Resource, info, req.MustProxyBytes)
+	rsp.Status, err = errToStatus(err)
+	return rsp, err
+}
+
+// History implements ResourceServer.
+func (s *server) History(ctx context.Context, req *HistoryRequest) (*HistoryResponse, error) {
+	if err := s.Init(); err != nil {
+		return nil, err
+	}
+	return s.search.History(ctx, req)
+}
+
 // IsHealthy implements ResourceServer.
 func (s *server) IsHealthy(ctx context.Context, req *HealthCheckRequest) (*HealthCheckResponse, error) {
 	if err := s.Init(); err != nil {
 		return nil, err
 	}
 	return s.diagnostics.IsHealthy(ctx, req)
+}
+
+// Origin implements ResourceServer.
+func (s *server) Origin(ctx context.Context, req *OriginRequest) (*OriginResponse, error) {
+	if err := s.Init(); err != nil {
+		return nil, err
+	}
+	return s.search.Origin(ctx, req)
 }
