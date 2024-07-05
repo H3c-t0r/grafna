@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
+	k8srequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/registry/generic"
 	"k8s.io/apiserver/pkg/registry/rest"
 	genericapiserver "k8s.io/apiserver/pkg/server"
@@ -18,6 +19,7 @@ import (
 	playlist "github.com/grafana/grafana/pkg/apis/playlist/v0alpha1"
 	grafanarest "github.com/grafana/grafana/pkg/apiserver/rest"
 	"github.com/grafana/grafana/pkg/infra/kvstore"
+	serverlocksvc "github.com/grafana/grafana/pkg/infra/serverlock"
 	"github.com/grafana/grafana/pkg/services/apiserver/builder"
 	"github.com/grafana/grafana/pkg/services/apiserver/endpoints/request"
 	gapiutil "github.com/grafana/grafana/pkg/services/apiserver/utils"
@@ -30,23 +32,26 @@ var _ builder.APIGroupBuilder = (*PlaylistAPIBuilder)(nil)
 
 // This is used just so wire has something unique to return
 type PlaylistAPIBuilder struct {
-	service    playlistsvc.Service
-	namespacer request.NamespaceMapper
-	gv         schema.GroupVersion
-	kvStore    *kvstore.NamespacedKVStore
+	service           playlistsvc.Service
+	namespacer        request.NamespaceMapper
+	gv                schema.GroupVersion
+	kvStore           *kvstore.NamespacedKVStore
+	serverLockService *serverlocksvc.ServerLockService
 }
 
 func RegisterAPIService(p playlistsvc.Service,
 	apiregistration builder.APIRegistrar,
 	cfg *setting.Cfg,
 	kvStore kvstore.KVStore,
+	serverLockService *serverlocksvc.ServerLockService,
 	registerer prometheus.Registerer,
 ) *PlaylistAPIBuilder {
 	builder := &PlaylistAPIBuilder{
-		service:    p,
-		namespacer: request.GetNamespaceMapper(cfg),
-		gv:         playlist.PlaylistResourceInfo.GroupVersion(),
-		kvStore:    kvstore.WithNamespace(kvStore, 0, "storage.dualwriting"),
+		service:           p,
+		namespacer:        request.GetNamespaceMapper(cfg),
+		gv:                playlist.PlaylistResourceInfo.GroupVersion(),
+		kvStore:           kvstore.WithNamespace(kvStore, 0, "storage.dualwriting"),
+		serverLockService: serverLockService,
 		// register:  newMetrics(registerer),
 	}
 	apiregistration.RegisterAPI(builder)
@@ -137,7 +142,20 @@ func (b *PlaylistAPIBuilder) GetAPIGroupInfo(
 			return nil, err
 		}
 
-		dualWriter, err := grafanarest.SetDualWritingMode(context.Background(), b.kvStore, legacyStore, store, playlist.GROUPRESOURCE, desiredMode, reg)
+		requestInfo := &k8srequest.RequestInfo{
+			APIGroup:  playlist.GROUP,
+			Resource:  playlist.RESOURCE,
+			Name:      "",
+			Namespace: b.namespacer(int64(1)),
+		}
+
+		dualWriter, err := grafanarest.SetDualWritingMode(context.Background(), b.kvStore, legacyStore, store, playlist.GROUPRESOURCE,
+			grafanarest.DualWriterOptions{
+				Mode:              desiredMode,
+				Reg:               reg,
+				RequestInfo:       requestInfo,
+				ServerLockService: b.serverLockService,
+			})
 		if err != nil {
 			return nil, err
 		}

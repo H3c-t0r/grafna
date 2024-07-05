@@ -12,6 +12,7 @@ type dualWriterMetrics struct {
 	legacy  *prometheus.HistogramVec
 	storage *prometheus.HistogramVec
 	outcome *prometheus.HistogramVec
+	sync    *prometheus.HistogramVec
 }
 
 // DualWriterStorageDuration is a metric summary for dual writer storage duration per mode
@@ -38,15 +39,25 @@ var DualWriterOutcome = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 	NativeHistogramBucketFactor: 1.1,
 }, []string{"mode", "name", "method"})
 
+// DualWriterSyncDuration is a metric summary for dual writer sync duration per mode
+var DualWriterSyncDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+	Name:                        "dual_writer_sync_duration_seconds",
+	Help:                        "Histogram for the runtime of dual writer sync duration per mode",
+	Namespace:                   "grafana",
+	NativeHistogramBucketFactor: 1.1,
+}, []string{"is_error", "mode"})
+
 func (m *dualWriterMetrics) init(reg prometheus.Registerer) {
 	log := klog.NewKlogr()
 	m.legacy = DualWriterLegacyDuration
 	m.storage = DualWriterStorageDuration
 	m.outcome = DualWriterOutcome
+	m.sync = DualWriterSyncDuration
 	errLegacy := reg.Register(m.legacy)
 	errStorage := reg.Register(m.storage)
 	errOutcome := reg.Register(m.outcome)
-	if errLegacy != nil || errStorage != nil || errOutcome != nil {
+	errSync := reg.Register(m.sync)
+	if errLegacy != nil || errStorage != nil || errOutcome != nil || errSync != nil {
 		log.Info("cloud migration metrics already registered")
 	}
 }
@@ -68,4 +79,9 @@ func (m *dualWriterMetrics) recordOutcome(mode string, name string, outcome bool
 		observeValue = 1
 	}
 	m.outcome.WithLabelValues(mode, name, method).Observe(observeValue)
+}
+
+func (m *dualWriterMetrics) recordSyncDuration(isError bool, mode string, startFrom time.Time) {
+	duration := time.Since(startFrom).Seconds()
+	m.sync.WithLabelValues(strconv.FormatBool(isError), mode).Observe(duration)
 }
