@@ -118,6 +118,22 @@ export const plugin = new PanelPlugin<Options, FieldConfig>(StateTimelinePanel)
           step: 0.01,
         },
         defaultValue: defaultOptions.rowHeight,
+      })
+      .addBooleanSwitch({
+        path: 'enablePagination',
+        name: 'Enable pagination',
+        defaultValue: defaultOptions.enablePagination,
+      })
+      .addNumberInput({
+        path: 'maxPageSize',
+        name: 'Max page size',
+        settings: {
+          min: 1,
+          step: 1,
+          integer: true,
+          placeholder: defaultOptions.maxPageSize!.toString(),
+        },
+        showIf: (options) => options.enablePagination,
       });
 
     commonOptionsBuilder.addLegendOptions(builder, false);
