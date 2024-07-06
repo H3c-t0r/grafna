@@ -41,7 +41,7 @@ require (
 	github.com/beevik/etree v1.2.0 // @grafana/grafana-backend-group
 	github.com/benbjohnson/clock v1.3.5 // @grafana/alerting-backend
 	github.com/blang/semver/v4 v4.0.0 // indirect; @grafana/grafana-release-guild
-	github.com/blugelabs/bluge v0.1.9 // @grafana/grafana-backend-group
+	github.com/blugelabs/bluge v0.2.2 // @grafana/grafana-backend-group
 	github.com/blugelabs/bluge_segment_api v0.2.0 // @grafana/grafana-backend-group
 	github.com/bradfitz/gomemcache v0.0.0-20190913173617-a41fca850d0b // @grafana/grafana-backend-group
 	github.com/bufbuild/connect-go v1.10.0 // @grafana/observability-traces-and-profiling
@@ -94,7 +94,7 @@ require (
 	github.com/grafana/grafana-openapi-client-go v0.0.0-20231213163343-bd475d63fb79 // @grafana/grafana-backend-group
 	github.com/grafana/grafana-plugin-sdk-go v0.235.0 // @grafana/plugins-platform-backend
 	github.com/grafana/grafana/pkg/apimachinery v0.0.0-20240701190119-78f9c0fd4144 // @grafana/grafana-app-platform-squad
-	github.com/grafana/grafana/pkg/apiserver v0.0.0-20240701190119-78f9c0fd4144 // @grafana/grafana-app-platform-squad
+	github.com/grafana/grafana/pkg/apiserver v0.0.0-20240706163945-aaf23c64c33b // @grafana/grafana-app-platform-squad
 	// This needs to be here for other projects that import grafana/grafana
 	// For local development grafana/grafana will always use the local files
 	// Check go.work file for details
@@ -438,6 +438,7 @@ require (
 
 require (
 	github.com/antlr4-go/antlr/v4 v4.13.0 // indirect
+	github.com/blugelabs/ice/v2 v2.0.1 // indirect
 	github.com/envoyproxy/protoc-gen-validate v1.0.4 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
