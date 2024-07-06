@@ -9,6 +9,16 @@ import (
 	"github.com/grafana/grafana/pkg/util"
 )
 
+type Datasource struct {
+	UID string `json:"uid"`
+}
+
+type QueryHistoryDatasourceIndex struct {
+	ID                  int64  `xorm:"pk autoincr 'id'"`
+	DatasourceUID       string `xorm:"datasource_uid"`
+	QueryHistoryItemUID string `xorm:"query_history_item_uid"`
+}
+
 // createQuery adds a query into query history
 func (s QueryHistoryService) createQuery(ctx context.Context, user *user.SignedInUser, cmd CreateQueryInQueryHistoryCommand) (QueryHistoryDTO, error) {
 	queryHistory := QueryHistory{
@@ -27,6 +37,25 @@ func (s QueryHistoryService) createQuery(ctx context.Context, user *user.SignedI
 	})
 	if err != nil {
 		return QueryHistoryDTO{}, err
+	}
+
+	dsUids, err := FindDataSourceUIDs(cmd.Queries)
+
+	if err == nil {
+		var indexItems []QueryHistoryDatasourceIndex
+		for _, uid := range dsUids {
+			indexItems = append(indexItems, QueryHistoryDatasourceIndex{
+				QueryHistoryItemUID: queryHistory.UID,
+				DatasourceUID:       uid,
+			})
+		}
+
+		err = s.store.WithDbSession(ctx, func(session *db.Session) error {
+			for _, indexItem := range indexItems {
+				_, err = session.Insert(indexItem)
+			}
+			return nil
+		})
 	}
 
 	dto := QueryHistoryDTO{
@@ -114,6 +143,12 @@ func (s QueryHistoryService) deleteQuery(ctx context.Context, user *user.SignedI
 		_, err := session.Table("query_history_star").Where("user_id = ? AND query_uid = ?", user.UserID, UID).Delete(QueryHistoryStar{})
 		if err != nil {
 			s.log.Error("Failed to unstar query while deleting it from query history", "query", UID, "user", user.UserID, "error", err)
+		}
+
+		// remove the index
+		_, err = session.Table("query_history_datasource_index").Where("query_history_item_uid = ?", UID).Delete(QueryHistoryDatasourceIndex{})
+		if err != nil {
+			s.log.Error("Failed to remove the index for the query item", "query", UID, "user", user.UserID, "error", err)
 		}
 
 		// Then delete it
@@ -274,19 +309,28 @@ func (s QueryHistoryService) deleteStaleQueries(ctx context.Context, olderThan i
 	var rowsCount int64
 
 	err := s.store.WithDbSession(ctx, func(session *db.Session) error {
-		sql := `DELETE 
-			FROM query_history 
-			WHERE uid IN (
-				SELECT uid FROM (
-					SELECT uid FROM query_history
-					LEFT JOIN query_history_star
-					ON query_history_star.query_uid = query_history.uid
-					WHERE query_history_star.query_uid IS NULL
-					AND query_history.created_at <= ?
-					ORDER BY query_history.id ASC
-					LIMIT 10000
-				) AS q
-			)`
+		uids_sql := `SELECT uid FROM (
+			SELECT uid FROM query_history
+			LEFT JOIN query_history_star
+			ON query_history_star.query_uid = query_history.uid
+			WHERE query_history_star.query_uid IS NULL
+			AND query_history.created_at <= ?
+			ORDER BY query_history.id ASC
+			LIMIT 10000
+		) AS q`
+
+		index_sql := `DELETE
+			FROM query_history_datasource_index
+			WHERE query_history_item_uid IN (` + uids_sql + `)`
+
+		sql := `DELETE
+			FROM query_history
+			WHERE uid IN (` + uids_sql + `)`
+
+		_, err := session.Exec(index_sql, strconv.FormatInt(olderThan, 10))
+		if err != nil {
+			return err
+		}
 
 		res, err := session.Exec(sql, strconv.FormatInt(olderThan, 10))
 		if err != nil {
@@ -329,17 +373,17 @@ func (s QueryHistoryService) enforceQueryHistoryRowLimit(ctx context.Context, li
 		if countRowsToDelete > 0 {
 			var sql string
 			if starredQueries {
-				sql = `DELETE FROM query_history_star 
+				sql = `DELETE FROM query_history_star
 					WHERE id IN (
 						SELECT id FROM (
 							SELECT id FROM query_history_star
-							ORDER BY id ASC 
+							ORDER BY id ASC
 							LIMIT ?
 						) AS q
 					)`
 			} else {
-				sql = `DELETE 
-					FROM query_history 
+				sql = `DELETE
+					FROM query_history
 					WHERE uid IN (
 						SELECT uid FROM (
 							SELECT uid FROM query_history
