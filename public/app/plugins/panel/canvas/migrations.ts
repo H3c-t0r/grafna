@@ -1,4 +1,5 @@
-import { PanelModel } from '@grafana/data';
+import { DataLink, DynamicConfigValue, FieldMatcherID, PanelModel } from '@grafana/data';
+import { CanvasElementOptions } from 'app/features/canvas/element';
 
 import { Options } from './panelcfg.gen';
 
@@ -42,5 +43,44 @@ export const canvasMigrationHandler = (panel: PanelModel): Partial<Options> => {
     }
   }
 
+  for (let idx = 0; idx < panel.fieldConfig.overrides.length; idx++) {
+    const override = panel.fieldConfig.overrides[idx];
+
+    if (override.matcher.id === FieldMatcherID.byName) {
+      let props: DynamicConfigValue[] = [];
+
+      // append override links to elements with dimensions mapped to same field name
+      for (const prop of override.properties) {
+        if (prop.id === 'links') {
+          addLinks(panel.options.root.elements, prop.value, override.matcher.options);
+        } else {
+          props.push(prop);
+        }
+      }
+
+      if (props.length > 0) {
+        override.properties = props;
+      } else {
+        panel.fieldConfig.overrides.splice(idx, 1);
+      }
+    }
+  }
+
   return panel.options;
 };
+
+function addLinks(elements: CanvasElementOptions[], links: DataLink[], fieldName?: string) {
+  elements.forEach((element) => {
+    let cfg = element.config as Record<string, any>;
+
+    for (let k in cfg) {
+      let dim = cfg[k];
+
+      // todo: getFieldDisplayName?
+      if (dim.field === fieldName) {
+        element.links ??= [];
+        element.links.push(...links);
+      }
+    }
+  });
+}
