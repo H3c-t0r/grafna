@@ -94,7 +94,7 @@ require (
 	github.com/grafana/grafana-openapi-client-go v0.0.0-20231213163343-bd475d63fb79 // @grafana/grafana-backend-group
 	github.com/grafana/grafana-plugin-sdk-go v0.235.0 // @grafana/plugins-platform-backend
 	github.com/grafana/grafana/pkg/apimachinery v0.0.0-20240701190119-78f9c0fd4144 // @grafana/grafana-app-platform-squad
-	github.com/grafana/grafana/pkg/apiserver v0.0.0-20240701190119-78f9c0fd4144 // @grafana/grafana-app-platform-squad
+	github.com/grafana/grafana/pkg/apiserver v0.0.0-20240706163945-aaf23c64c33b // @grafana/grafana-app-platform-squad
 	// This needs to be here for other projects that import grafana/grafana
 	// For local development grafana/grafana will always use the local files
 	// Check go.work file for details
@@ -110,7 +110,7 @@ require (
 	github.com/hashicorp/go-plugin v1.6.1 // @grafana/plugins-platform-backend
 	github.com/hashicorp/go-version v1.6.0 // @grafana/grafana-backend-group
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // @grafana/alerting-backend
-	github.com/hashicorp/hcl/v2 v2.17.0 // @grafana/alerting-backend
+	github.com/hashicorp/hcl/v2 v2.21.0 // @grafana/alerting-backend
 	github.com/huandu/xstrings v1.3.3 // @grafana/partner-datasources
 	github.com/influxdata/influxdb-client-go/v2 v2.13.0 // @grafana/observability-metrics
 	github.com/influxdata/line-protocol v0.0.0-20210922203350-b1ad95c89adf // @grafana/grafana-app-platform-squad
@@ -438,6 +438,7 @@ require (
 
 require (
 	github.com/antlr4-go/antlr/v4 v4.13.0 // indirect
+	github.com/apparentlymart/go-textseg/v15 v15.0.0 // indirect
 	github.com/envoyproxy/protoc-gen-validate v1.0.4 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
