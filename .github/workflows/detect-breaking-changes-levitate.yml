@@ -111,6 +111,9 @@ jobs:
     needs: ['buildPR', 'buildBase']
     env:
       GITHUB_STEP_NUMBER: 8
+    permissions:
+      contents: 'read'
+      id-token: 'write'
 
     steps:
       - uses: actions/checkout@v4
@@ -133,6 +136,37 @@ jobs:
 
       - name: Unzip artifact from base
         run: unzip -j base_built_packages.zip -d ./base && rm base_built_packages.zip
+
+      - id: 'auth'
+        uses: 'google-github-actions/auth@v2'
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.LEVITATE_SA }}
+
+      - name: 'Set up Cloud SDK'
+        uses: 'google-github-actions/setup-gcloud@v2'
+        with:
+          version: '>= 363.0.0'
+
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+
+      - name: Run BigQuery query
+        run: |
+          gcloud config set project grafanalabs-global
+          bq query --nouse_legacy_sql "
+          SELECT
+            property_name,
+            package_name,
+            COUNT(property_name) as cnt
+          FROM
+            \`grafanalabs-global.plugins_data.plugin_imports\`
+          WHERE
+            package_name IN ('@grafana/ui','@grafana/runtime','@grafana/experimental','@grafana/schema','@grafana/data')
+          GROUP BY
+            property_name, package_name
+          ORDER BY cnt DESC
+          "
 
       - name: Get link for the Github Action job
         id: job
