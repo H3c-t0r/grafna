@@ -1,11 +1,12 @@
-import { css } from '@emotion/css';
+import { cx } from '@emotion/css';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useCombobox } from 'downshift';
 import { useMemo, useRef, useState } from 'react';
 
-import { useStyles2 } from '../../themes';
+import { useTheme2 } from '../../themes';
 import { Icon } from '../Icon/Icon';
 import { Input, Props as InputProps } from '../Input/Input';
+import { getSelectStyles } from '../Select/getSelectStyles';
 
 export type Value = string | number;
 export type Option = {
@@ -38,7 +39,7 @@ function itemFilter(inputValue: string) {
 }
 
 function estimateSize() {
-  return 60;
+  return 30;
 }
 
 export const Combobox = ({ options, onChange, value, ...restProps }: ComboboxProps) => {
@@ -46,7 +47,8 @@ export const Combobox = ({ options, onChange, value, ...restProps }: ComboboxPro
   const selectedItem = useMemo(() => options.find((option) => option.value === value) || null, [options, value]);
   const listRef = useRef(null);
 
-  const styles = useStyles2(getStyles);
+  const theme = useTheme2();
+  const styles = getSelectStyles(theme);
 
   const rowVirtualizer = useVirtualizer({
     count: items.length,
@@ -73,9 +75,9 @@ export const Combobox = ({ options, onChange, value, ...restProps }: ComboboxPro
   return (
     <div>
       <Input suffix={<Icon name={isOpen ? 'search' : 'angle-down'} />} {...restProps} {...getInputProps()} />
-      <div className={styles.dropdown} {...getMenuProps({ ref: listRef })}>
+      <div className={styles.menu} {...getMenuProps({ ref: listRef })}>
         {isOpen && (
-          <ul style={{ height: rowVirtualizer.getTotalSize() }}>
+          <ul className={styles.valueContainer} style={{ height: rowVirtualizer.getTotalSize() }}>
             {rowVirtualizer.getVirtualItems().map((virtualRow) => {
               return (
                 <li
@@ -83,13 +85,15 @@ export const Combobox = ({ options, onChange, value, ...restProps }: ComboboxPro
                   {...getItemProps({ item: items[virtualRow.index], index: virtualRow.index })}
                   data-index={virtualRow.index}
                   ref={rowVirtualizer.measureElement}
-                  className={styles.menuItem}
-                  style={{
-                    transform: `translateY(${virtualRow.start}px)`,
-                  }}
+                  className={cx(
+                    styles.option,
+                    selectedItem && items[virtualRow.index].value === selectedItem.value && styles.optionSelected
+                  )}
                 >
-                  <span>{items[virtualRow.index].label}</span>
-                  {items[virtualRow.index].description && <span>{items[virtualRow.index].description}</span>}
+                  <span className={styles.optionBody}>{items[virtualRow.index].label}</span>
+                  {items[virtualRow.index].description && (
+                    <span className={styles.optionDescription}>{items[virtualRow.index].description}</span>
+                  )}
                 </li>
               );
             })}
@@ -99,24 +103,3 @@ export const Combobox = ({ options, onChange, value, ...restProps }: ComboboxPro
     </div>
   );
 };
-
-const getStyles = () => ({
-  dropdown: css({
-    position: 'absolute',
-    height: 400,
-    width: 600,
-    overflowY: 'scroll',
-    contain: 'strict',
-  }),
-  menuItem: css({
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: '100%',
-    display: 'flex',
-    flexDirection: 'column',
-    '&:first-child': {
-      fontWeight: 'bold',
-    },
-  }),
-});
