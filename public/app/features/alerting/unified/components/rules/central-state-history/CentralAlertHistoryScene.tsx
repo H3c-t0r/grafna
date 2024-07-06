@@ -1,6 +1,8 @@
 import { css } from '@emotion/css';
 
+import { VariableHide } from '@grafana/data';
 import {
+  CustomVariable,
   EmbeddedScene,
   PanelBuilders,
   SceneControlsSpacer,
@@ -18,6 +20,7 @@ import {
 } from '@grafana/scenes';
 import { GraphDrawStyle, VisibilityMode } from '@grafana/schema/dist/esm/index';
 import {
+  Button,
   GraphGradientMode,
   Icon,
   LegendDisplayMode,
@@ -35,7 +38,9 @@ import { DataSourceInformation } from '../../../home/Insights';
 import { alertStateHistoryDatasource, useRegisterHistoryRuntimeDataSource } from './CentralHistoryRuntimeDataSource';
 import { HistoryEventsListObject } from './EventListSceneObject';
 
-export const LABELS_FILTER = 'filter';
+export const LABELS_FILTER = 'labelsFilter';
+export const STATE_FILTER_TO = 'stateFilterTo';
+export const STATE_FILTER_FROM = 'stateFilterFrom';
 /**
  *
  * This scene shows the history of the alert state changes.
@@ -46,10 +51,35 @@ export const LABELS_FILTER = 'filter';
  * Both share time range and filter variable from the parent scene.
  */
 
+export const StateFilterValues = {
+  all: 'all',
+  firing: 'Alerting',
+  normal: 'Normal',
+  pending: 'Pending',
+} as const;
+
 export const CentralAlertHistoryScene = () => {
-  const filterVariable = new TextBoxVariable({
+  // create the variables for the filters
+  // textbox variable for filtering by labels
+  const labelsFilterVariable = new TextBoxVariable({
     name: LABELS_FILTER,
     label: 'Filter by labels: ',
+  });
+  //custom variable for filtering by the current state
+  const transitionsToFilterVariable = new CustomVariable({
+    name: STATE_FILTER_TO,
+    value: StateFilterValues.all,
+    label: 'Filter by current state:',
+    hide: VariableHide.dontHide,
+    query: `All : ${StateFilterValues.all}, To Firing : ${StateFilterValues.firing},To Normal : ${StateFilterValues.normal},To Pending : ${StateFilterValues.pending}`,
+  });
+  //custom variable for filtering by the previous state
+  const transitionsFromFilterVariable = new CustomVariable({
+    name: STATE_FILTER_FROM,
+    value: StateFilterValues.all,
+    label: 'Filter by previous state:',
+    hide: VariableHide.dontHide,
+    query: `All : ${StateFilterValues.all}, From Firing : ${StateFilterValues.firing},From Normal : ${StateFilterValues.normal},From Pending : ${StateFilterValues.pending}`,
   });
 
   useRegisterHistoryRuntimeDataSource(); // register the runtime datasource for the history api.
@@ -60,6 +90,14 @@ export const CentralAlertHistoryScene = () => {
         component: FilterInfo,
       }),
       new VariableValueSelectors({}),
+      new SceneReactObject({
+        component: ClearFilterButton,
+        props: {
+          labelsFilterVariable,
+          transitionsToFilterVariable,
+          transitionsFromFilterVariable,
+        },
+      }),
       new SceneControlsSpacer(),
       new SceneTimePicker({}),
       new SceneRefreshPicker({}),
@@ -71,7 +109,7 @@ export const CentralAlertHistoryScene = () => {
       to: 'now',
     }),
     $variables: new SceneVariableSet({
-      variables: [filterVariable],
+      variables: [labelsFilterVariable, transitionsFromFilterVariable, transitionsToFilterVariable],
     }),
     body: new SceneFlexLayout({
       direction: 'column',
@@ -167,6 +205,49 @@ export function getEventsScenesFlexItem(datasource: DataSourceInformation) {
       .build(),
   });
 }
+/*
+ * This component shows a button to clear the filters.
+ * It is shown when the filters are active.
+ * props:
+ * labelsFilterVariable: the textbox variable for filtering by labels
+ * transitionsToFilterVariable: the custom variable for filtering by the current state
+ * transitionsFromFilterVariable: the custom variable for filtering by the previous state
+ */
+
+function ClearFilterButton({
+  labelsFilterVariable,
+  transitionsToFilterVariable,
+  transitionsFromFilterVariable,
+}: {
+  labelsFilterVariable: TextBoxVariable;
+  transitionsToFilterVariable: CustomVariable;
+  transitionsFromFilterVariable: CustomVariable;
+}) {
+  // get the current values of the filters
+  const valueInLabelsFilter = labelsFilterVariable.getValue();
+  const valueInTransitionsFilter = transitionsToFilterVariable.getValue();
+  const valueInTransitionsFromFilter = transitionsFromFilterVariable.getValue();
+  // if no filter is active, return null
+  if (
+    !valueInLabelsFilter &&
+    valueInTransitionsFilter === StateFilterValues.all &&
+    valueInTransitionsFromFilter === StateFilterValues.all
+  ) {
+    return null;
+  }
+  const onClearFilter = () => {
+    labelsFilterVariable.setValue('');
+    transitionsToFilterVariable.changeValueTo(StateFilterValues.all);
+    transitionsFromFilterVariable.changeValueTo(StateFilterValues.all);
+  };
+  return (
+    <Tooltip content="Clear filter">
+      <Button variant={'secondary'} icon="times" onClick={onClearFilter}>
+        <Trans i18nKey="alerting.central-alert-history.filter.clear">Clear filters</Trans>
+      </Button>
+    </Tooltip>
+  );
+}
 
 export const FilterInfo = () => {
   const styles = useStyles2(getStyles);
@@ -180,7 +261,7 @@ export const FilterInfo = () => {
             </Trans>
             <pre>{`{severity="critical", instance=~"cluster-us-.+"}`}</pre>
             <Trans i18nKey="alerting.central-alert-history.filter.info.label2">Invalid use of spaces:</Trans>
-            <pre>{`{severity= "alerting.critical"}`}</pre>
+            <pre>{`{severity= "critical"}`}</pre>
             <pre>{`{severity ="critical"}`}</pre>
             <Trans i18nKey="alerting.central-alert-history.filter.info.label3">Valid use of spaces:</Trans>
             <pre>{`{severity=" critical"}`}</pre>

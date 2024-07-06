@@ -15,19 +15,20 @@ import { VizWrapper } from '../../rule-editor/VizWrapper';
 import { AnnotationValue } from '../../rule-viewer/tabs/Details';
 import { LogRecord } from '../state-history/common';
 
-import { EventState } from './EventListSceneObject';
+import { EventState, FilterType } from './EventListSceneObject';
 
 interface EventDetailsProps {
   record: LogRecord;
   logRecords: LogRecord[];
+  addFilter: (key: string, value: string, type: FilterType) => void;
 }
-export function EventDetails({ record, logRecords }: EventDetailsProps) {
+export function EventDetails({ record, logRecords, addFilter }: EventDetailsProps) {
   // get the rule from the ruleUID
   const ruleUID = record.line?.ruleUID ?? '';
   const identifier = useMemo(() => {
     return parse(ruleUID, true);
   }, [ruleUID]);
-  const { error, loading, result: rule } = useCombinedRule({ ruleIdentifier: identifier });
+  const { error, loading, result: rule } = useCombinedRule({ ruleIdentifier: identifier, limitAlerts: 0 }); // we limit the alerts to 0 as we only need the rule
 
   if (error) {
     return (
@@ -51,17 +52,21 @@ export function EventDetails({ record, logRecords }: EventDetailsProps) {
       </Text>
     );
   }
-
-  const getTransitionsCountByRuleUID = (ruleUID: string) => {
-    return logRecords.filter((record) => record.line.ruleUID === ruleUID).length;
+  // get the transitions count for the rule and labels: transitions count for this instance.
+  const getTransitionsCountByRuleUIDAndLabels = (ruleUID: string, labels?: Record<string, string> | undefined) => {
+    return logRecords.filter(
+      (record) => record.line.ruleUID === ruleUID && JSON.stringify(record.line.labels) === JSON.stringify(labels)
+    ).length;
   };
 
   return (
     <Stack direction="column" gap={0.5}>
       <Stack direction={'row'} gap={6}>
-        <StateTransition record={record} />
+        <StateTransition record={record} addFilter={addFilter} />
         <ValueInTransition record={record} />
-        <NumberTransitions transitions={ruleUID ? getTransitionsCountByRuleUID(ruleUID) : 0} />
+        <NumberTransitions
+          transitions={ruleUID ? getTransitionsCountByRuleUIDAndLabels(ruleUID, record.line.labels) : 0}
+        />
       </Stack>
       <Annotations rule={rule} />
       <QueryVizualization rule={rule} ruleUID={ruleUID} logRecords={logRecords} />
@@ -71,17 +76,18 @@ export function EventDetails({ record, logRecords }: EventDetailsProps) {
 
 interface StateTransitionProps {
   record: LogRecord;
+  addFilter: (key: string, value: string, type: FilterType) => void;
 }
-function StateTransition({ record }: StateTransitionProps) {
+function StateTransition({ record, addFilter }: StateTransitionProps) {
   return (
     <Stack gap={0.5} direction={'column'}>
       <Text variant="body" weight="light" color="secondary">
         <Trans i18nKey="alerting.central-alert-history.details.state-transitions">State transition</Trans>
       </Text>
       <Stack gap={0.5} direction={'row'} alignItems="center">
-        <EventState state={record.line.previous} showLabel />
+        <EventState state={record.line.previous} showLabel addFilter={addFilter} type="from" />
         <Icon name="arrow-right" size="lg" />
-        <EventState state={record.line.current} showLabel />
+        <EventState state={record.line.current} showLabel addFilter={addFilter} type="to" />
       </Stack>
     </Stack>
   );
