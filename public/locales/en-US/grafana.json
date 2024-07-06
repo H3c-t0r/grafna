@@ -584,10 +584,20 @@
       "stop-scan": "Stop scan"
     },
     "query-library": {
+      "add-edit-description": "Add/edit description",
+      "cancel": "Cancel",
+      "default-description": "Public",
       "delete-query": "Delete query",
       "delete-query-text": "You're about to remove this query from the query library. This action cannot be undone. Do you want to continue?",
       "delete-query-title": "Delete query",
-      "query-deleted": "Query deleted"
+      "private": "Private",
+      "public": "Public",
+      "query-deleted": "Query deleted",
+      "query-template-add-error": "Error attempting to add this query to the library",
+      "query-template-added": "Query template successfully added to the library",
+      "query-template-edit-error": "Error attempting to edit this query",
+      "query-template-edited": "Query template successfully edited",
+      "save": "Save"
     },
     "rich-history": {
       "close-tooltip": "Close query history",
