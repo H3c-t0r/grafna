@@ -46,7 +46,7 @@ require (
 	github.com/bradfitz/gomemcache v0.0.0-20190913173617-a41fca850d0b // @grafana/grafana-backend-group
 	github.com/bufbuild/connect-go v1.10.0 // @grafana/observability-traces-and-profiling
 	github.com/bwmarrin/snowflake v0.3.0 // @grafan/grafana-app-platform-squad
-	github.com/centrifugal/centrifuge v0.30.2 // @grafana/grafana-app-platform-squad
+	github.com/centrifugal/centrifuge v0.32.2 // @grafana/grafana-app-platform-squad
 	github.com/crewjam/saml v0.4.13 // @grafana/identity-access-team
 	github.com/dave/dst v0.27.2 // @grafana/grafana-as-code
 	github.com/deepmap/oapi-codegen/v2 v2.1.0 // @grafana/grafana-as-code
@@ -94,7 +94,7 @@ require (
 	github.com/grafana/grafana-openapi-client-go v0.0.0-20231213163343-bd475d63fb79 // @grafana/grafana-backend-group
 	github.com/grafana/grafana-plugin-sdk-go v0.235.0 // @grafana/plugins-platform-backend
 	github.com/grafana/grafana/pkg/apimachinery v0.0.0-20240701190119-78f9c0fd4144 // @grafana/grafana-app-platform-squad
-	github.com/grafana/grafana/pkg/apiserver v0.0.0-20240701190119-78f9c0fd4144 // @grafana/grafana-app-platform-squad
+	github.com/grafana/grafana/pkg/apiserver v0.0.0-20240708130138-c42dd6e9203b // @grafana/grafana-app-platform-squad
 	// This needs to be here for other projects that import grafana/grafana
 	// For local development grafana/grafana will always use the local files
 	// Check go.work file for details
@@ -252,7 +252,7 @@ require (
 	github.com/buger/jsonparser v1.1.1 // indirect
 	github.com/caio/go-tdigest v3.1.0+incompatible // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
-	github.com/centrifugal/protocol v0.10.0 // indirect
+	github.com/centrifugal/protocol v0.12.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cheekybits/genny v1.0.0 // indirect
 	github.com/chromedp/cdproto v0.0.0-20240426225625-909263490071 // indirect
@@ -316,7 +316,6 @@ require (
 	github.com/hashicorp/golang-lru v0.6.0 // indirect
 	github.com/hashicorp/memberlist v0.5.0 // indirect
 	github.com/hashicorp/yamux v0.1.1 // indirect
-	github.com/igm/sockjs-go/v3 v3.0.2 // indirect
 	github.com/imdario/mergo v0.3.16 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/invopop/jsonschema v0.12.0 // indirect
@@ -378,7 +377,7 @@ require (
 	github.com/prometheus/exporter-toolkit v0.11.0 // indirect
 	github.com/prometheus/procfs v0.14.0 // indirect
 	github.com/protocolbuffers/txtpbfmt v0.0.0-20220428173112-74888fd59c2b // indirect
-	github.com/redis/rueidis v1.0.16 // indirect
+	github.com/redis/rueidis v1.0.35 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/rs/cors v1.10.1 // @grafana/identity-access-team
@@ -460,7 +459,7 @@ require (
 	github.com/sagikazarmark/locafero v0.4.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
 	github.com/sean-/seed v0.0.0-20170313163322-e2103e2c3529 // indirect
-	github.com/segmentio/encoding v0.3.6 // indirect
+	github.com/segmentio/encoding v0.4.0 // indirect
 	github.com/sethvargo/go-retry v0.2.4 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spf13/afero v1.11.0 // indirect
